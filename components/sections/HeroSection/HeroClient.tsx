@@ -159,7 +159,7 @@ export default function HeroClient({ techBadges }: HeroClientProps) {
             }}
           >
             <Box component="span" sx={{ color: primary, fontWeight: 700 }}>
-              //&nbsp;
+              {"//"}
             </Box>
             {title}
           </Typography>

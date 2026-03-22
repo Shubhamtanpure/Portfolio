@@ -1,95 +1,369 @@
+/* eslint-disable react-hooks/purity */
 "use client";
 // components/sections/AboutSection/AboutClient.tsx
 
-import React, { useRef, Suspense } from "react";
+import React, { useRef, useMemo, Suspense } from "react";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import { useTheme, alpha } from "@mui/material/styles";
 import { motion, useInView } from "framer-motion";
 import { Canvas, useFrame } from "@react-three/fiber";
-import {
-  TorusKnot,
-  Float,
-  MeshDistortMaterial,
-  Stars,
-} from "@react-three/drei";
+import { Points, PointMaterial } from "@react-three/drei";
 import * as THREE from "three";
+import { ABOUT_CARDS, TIMELINE } from "@/data/about";
 
-// ─── 3D Scene ─────────────────────────────────────────────────────────────────
+// ─── Color constants (match your MUI palette) ────────────────────────────────
 
-function RotatingKnot() {
-  const ref = useRef<THREE.Mesh>(null);
+const COL = {
+  primary: 0x7c73ff,
+  secondary: 0x00d4b8,
+  amber: 0xf59e0b,
+  red: 0xef4444,
+  primaryHex: "#7C73FF",
+  secondaryHex: "#00D4B8",
+} as const;
+
+// ─── IIoT Network nodes config ───────────────────────────────────────────────
+// 6 nodes representing real components in Shubham's stack, arranged in a hex
+
+const NODES = [
+  { label: "PLC", color: COL.primary, colorHex: "#7C73FF" },
+  { label: "HMI", color: COL.secondary, colorHex: "#00D4B8" },
+  { label: "Kafka", color: COL.primary, colorHex: "#7C73FF" },
+  { label: "Redis", color: COL.secondary, colorHex: "#00D4B8" },
+  { label: "Vision AI", color: COL.amber, colorHex: "#F59E0B" },
+  { label: "Dashboard", color: COL.red, colorHex: "#EF4444" },
+] as const;
+
+// Connections between node indices [from, to]
+const CONNECTIONS = [
+  [0, 2],
+  [1, 2],
+  [2, 3],
+  [2, 4],
+  [3, 5],
+  [4, 5],
+] as const;
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Central IIoT hub — icosahedron with wireframe overlay + orbital ring */
+function CoreHub() {
+  const groupRef = useRef<THREE.Group>(null);
+  const orbitRef = useRef<THREE.Mesh>(null);
+
   useFrame((_, delta) => {
-    if (ref.current) {
-      ref.current.rotation.x += delta * 0.3;
-      ref.current.rotation.y += delta * 0.5;
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.4;
+      groupRef.current.rotation.x += delta * 0.15;
+      // Pulse scale
+      const pulse = 1 + Math.sin(Date.now() * 0.002) * 0.04;
+      groupRef.current.scale.setScalar(pulse);
+    }
+    if (orbitRef.current) {
+      orbitRef.current.rotation.z += delta * 0.6;
     }
   });
+
   return (
-    <Float speed={1.5} rotationIntensity={0.4} floatIntensity={0.8}>
-      <TorusKnot ref={ref} args={[1, 0.32, 200, 20]}>
-        <MeshDistortMaterial
-          color="#7C73FF"
-          emissive="#3B35AA"
-          emissiveIntensity={0.4}
-          metalness={0.8}
-          roughness={0.1}
-          distort={0.3}
-          speed={2}
+    <group ref={groupRef}>
+      {/* Solid core */}
+      <mesh>
+        <icosahedronGeometry args={[0.5, 1]} />
+        <meshStandardMaterial
+          color={COL.primary}
+          emissive={0x3b35aa}
+          emissiveIntensity={0.6}
+          metalness={0.85}
+          roughness={0.15}
         />
-      </TorusKnot>
-    </Float>
+      </mesh>
+      {/* Wireframe overlay */}
+      <mesh>
+        <icosahedronGeometry args={[0.52, 1]} />
+        <meshBasicMaterial
+          color={COL.primary}
+          wireframe
+          transparent
+          opacity={0.3}
+        />
+      </mesh>
+      {/* Orbital ring */}
+      <mesh ref={orbitRef} rotation={[Math.PI / 3, 0, 0]}>
+        <torusGeometry args={[0.82, 0.022, 16, 128]} />
+        <meshStandardMaterial
+          color={COL.secondary}
+          emissive={COL.secondary}
+          emissiveIntensity={0.5}
+          metalness={0.9}
+          roughness={0.1}
+        />
+      </mesh>
+    </group>
   );
 }
 
-function AboutScene() {
+/** Single node: floating ring + inner sphere */
+function NetworkNode({
+  position,
+  color,
+  index,
+}: {
+  position: [number, number, number];
+  color: number;
+  index: number;
+}) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  const sphereRef = useRef<THREE.Mesh>(null);
+  const baseY = position[1];
+
+  useFrame(() => {
+    const t = Date.now() * 0.001;
+    const floatY = baseY + Math.sin(t * 1.2 + index) * 0.12;
+    if (ringRef.current) {
+      ringRef.current.position.y = floatY;
+      ringRef.current.rotation.z = t * 0.8 + index;
+    }
+    if (sphereRef.current) {
+      sphereRef.current.position.y = floatY;
+    }
+  });
+
+  return (
+    <group>
+      <mesh ref={ringRef} position={position}>
+        <torusGeometry args={[0.22, 0.025, 16, 64]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={0.8}
+          metalness={0.9}
+          roughness={0.1}
+        />
+      </mesh>
+      <mesh ref={sphereRef} position={position}>
+        <sphereGeometry args={[0.1, 32, 32]} />
+        <meshStandardMaterial
+          color={color}
+          emissive={color}
+          emissiveIntensity={1}
+          metalness={1}
+          roughness={0}
+        />
+      </mesh>
+    </group>
+  );
+}
+
+/** Animated pulse packet: travels from node A to node B */
+function PulsePacket({
+  from,
+  to,
+  color,
+  initialT,
+  speed,
+}: {
+  from: [number, number, number];
+  to: [number, number, number];
+  color: number;
+  initialT: number;
+  speed: number;
+}) {
+  const ref = useRef<THREE.Mesh>(null);
+  const tRef = useRef(initialT);
+  const dirRef = useRef(1);
+
+  useFrame((_, delta) => {
+    tRef.current += speed * delta * 60 * dirRef.current;
+    if (tRef.current > 1) {
+      tRef.current = 0;
+      dirRef.current = Math.random() > 0.4 ? 1 : -1;
+    }
+    if (tRef.current < 0) {
+      tRef.current = 1;
+      dirRef.current = Math.random() > 0.4 ? 1 : -1;
+    }
+
+    if (ref.current) {
+      const t = tRef.current;
+      ref.current.position.x = from[0] + (to[0] - from[0]) * t;
+      ref.current.position.y =
+        from[1] + (to[1] - from[1]) * t + Math.sin(Date.now() * 0.002) * 0.1;
+      ref.current.position.z = from[2] + (to[2] - from[2]) * t;
+    }
+  });
+
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[0.045, 12, 12]} />
+      <meshStandardMaterial
+        color={color}
+        emissive={color}
+        emissiveIntensity={2}
+        metalness={1}
+        roughness={0}
+      />
+    </mesh>
+  );
+}
+
+/** Connection line between two node positions */
+function ConnectionLine({
+  from,
+  to,
+  index,
+}: {
+  from: [number, number, number];
+  to: [number, number, number];
+  index: number;
+}) {
+  const matRef = useRef<THREE.LineBasicMaterial>(null);
+
+  useFrame(() => {
+    if (matRef.current) {
+      matRef.current.opacity =
+        0.15 + Math.sin(Date.now() * 0.0015 + index) * 0.15;
+    }
+  });
+
+  const points = useMemo(
+    () => [new THREE.Vector3(...from), new THREE.Vector3(...to)],
+    [from, to]
+  );
+  const geo = useMemo(
+    () => new THREE.BufferGeometry().setFromPoints(points),
+    [points]
+  );
+  return (
+    <line>
+      <bufferGeometry attach="geometry" {...geo} />
+      <lineBasicMaterial
+        ref={matRef}
+        attach="material"
+        color={COL.primary}
+        transparent
+        opacity={0.2}
+      />
+    </line>
+  );
+}
+
+/** Background particle dust */
+function Particles() {
+  const ref = useRef<THREE.Points>(null);
+  const count = 500;
+
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 8;
+      pos[i * 3 + 1] = (Math.random() - 0.5) * 6;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 6;
+    }
+    return pos;
+  }, []);
+
+  useFrame((_, delta) => {
+    if (ref.current) {
+      ref.current.rotation.y += delta * 0.05;
+      ref.current.rotation.x += delta * 0.02;
+    }
+  });
+
+  return (
+    <Points ref={ref} positions={positions} stride={3}>
+      <PointMaterial
+        transparent
+        color={COL.primaryHex}
+        size={0.018}
+        sizeAttenuation
+        depthWrite={false}
+        opacity={0.45}
+      />
+    </Points>
+  );
+}
+
+/** Full rotating network scene */
+function IIoTNetworkScene() {
+  const groupRef = useRef<THREE.Group>(null);
+
+  // Compute node positions in a hex ring
+  const nodePositions = useMemo<[number, number, number][]>(
+    () =>
+      NODES.map((_, i) => {
+        const angle = (i / NODES.length) * Math.PI * 2;
+        const r = 2.2;
+        return [
+          Math.cos(angle) * r,
+          Math.sin(angle) * r * 0.55, // flatten vertically
+          Math.sin(angle) * r * 0.35, // slight z depth
+        ];
+      }),
+    []
+  );
+
+  useFrame((_, delta) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y += delta * 0.12;
+      groupRef.current.rotation.x = Math.sin(Date.now() * 0.0003) * 0.08;
+    }
+  });
+
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[5, 5, 5]} intensity={2} color="#7C73FF" />
-      <pointLight position={[-5, -3, 2]} intensity={1} color="#00D4B8" />
-      <Stars radius={60} depth={30} count={800} factor={3} fade speed={0.5} />
-      <RotatingKnot />
+      {/* Lights */}
+      <ambientLight intensity={0.25} />
+      <pointLight position={[3, 3, 3]} intensity={3} color={COL.primaryHex} />
+      <pointLight
+        position={[-3, -2, 2]}
+        intensity={2}
+        color={COL.secondaryHex}
+      />
+      <pointLight position={[0, -3, -2]} intensity={1} color="#F59E0B" />
+
+      <Particles />
+
+      <group ref={groupRef}>
+        {/* Connection lines */}
+        {CONNECTIONS.map(([a, b], i) => (
+          <ConnectionLine
+            key={i}
+            from={nodePositions[a]}
+            to={nodePositions[b]}
+            index={i}
+          />
+        ))}
+
+        {/* Pulse packets traveling connections */}
+        {CONNECTIONS.map(([a, b], i) => (
+          <PulsePacket
+            key={i}
+            from={nodePositions[a]}
+            to={nodePositions[b]}
+            color={i % 2 === 0 ? COL.primary : COL.secondary}
+            initialT={Math.random()}
+            speed={0.004 + Math.random() * 0.003}
+          />
+        ))}
+
+        {/* Nodes */}
+        {NODES.map((node, i) => (
+          <NetworkNode
+            key={i}
+            position={nodePositions[i]}
+            color={node.color}
+            index={i}
+          />
+        ))}
+
+        {/* Central hub */}
+        <CoreHub />
+      </group>
     </>
   );
 }
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const ABOUT_CARDS = [
-  {
-    icon: "🏭",
-    title: "Industrial Software",
-    body: "Building SaaS platforms that run real factories — connecting PLCs, HMIs, and edge AI nodes to enterprise dashboards.",
-    color: "#7C73FF",
-  },
-  {
-    icon: "⚡",
-    title: "Real-Time Systems",
-    body: "Kafka event pipelines, WebSocket streams, and Redis pub/sub powering live production monitoring at machine speed.",
-    color: "#00D4B8",
-  },
-  {
-    icon: "👁",
-    title: "AI & Computer Vision",
-    body: "Bridging CV inference pipelines with enterprise software — turning visual data into production KPIs and quality metrics.",
-    color: "#F59E0B",
-  },
-  {
-    icon: "🏗",
-    title: "Scalable Architecture",
-    body: "Microservices, multi-tenant SaaS, RBAC security models — designing systems that grow with enterprise scale demands.",
-    color: "#EF4444",
-  },
-];
-
-const TIMELINE = [
-  { year: "2019", label: "Started B.E. Computer Science at SPPU" },
-  { year: "2023", label: "Graduated with honours" },
-  { year: "Dec 2024", label: "Joined Elansol Technologies as Jr. Developer" },
-  { year: "2025", label: "Shipping 3+ live industrial SaaS platforms" },
-];
 
 // ─── Framer variants ──────────────────────────────────────────────────────────
 
@@ -98,20 +372,20 @@ const fadeUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    transition: { delay: i * 0.1, duration: 0.55, ease: "easeOut" as const },
   }),
-};
+} as const;
 
 const scaleIn = {
   hidden: { opacity: 0, scale: 0.88 },
   visible: (i: number) => ({
     opacity: 1,
     scale: 1,
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+    transition: { delay: i * 0.08, duration: 0.5, ease: "easeOut" as const },
   }),
-};
+} as const;
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function AboutClient() {
   const theme = useTheme();
@@ -135,7 +409,7 @@ export default function AboutClient() {
         overflow: "hidden",
       }}
     >
-      {/* Subtle background */}
+      {/* Background radial */}
       <Box
         aria-hidden
         sx={{
@@ -199,7 +473,7 @@ export default function AboutClient() {
           </Box>
         </motion.div>
 
-        {/* Main two-column layout */}
+        {/* Two-column layout */}
         <Box
           sx={{
             display: "flex",
@@ -224,8 +498,8 @@ export default function AboutClient() {
                   mb: 4,
                 }}
               >
-                I'm a full-stack developer based in Pune, India, specialising in
-                industrial SaaS platforms that bridge{" "}
+                I&apos;m a full-stack developer based in Pune, India,
+                specialising in industrial SaaS platforms that bridge{" "}
                 <Box
                   component="span"
                   sx={{ color: "text.primary", fontWeight: 600 }}
@@ -252,9 +526,7 @@ export default function AboutClient() {
                   real-time, event-driven architectures
                 </Box>{" "}
                 — Kafka pipelines, WebSocket streams, and microservices that
-                handle the throughput demands of industrial environments. I
-                believe in clean separation of concerns, type-safe APIs, and
-                software that performs under production pressure.
+                handle the throughput demands of industrial environments.
               </Typography>
             </motion.div>
 
@@ -278,7 +550,6 @@ export default function AboutClient() {
                 Timeline
               </Typography>
               <Box sx={{ position: "relative", pl: 3 }}>
-                {/* Vertical line */}
                 <Box
                   sx={{
                     position: "absolute",
@@ -306,7 +577,6 @@ export default function AboutClient() {
                         position: "relative",
                       }}
                     >
-                      {/* Dot */}
                       <Box
                         sx={{
                           position: "absolute",
@@ -353,31 +623,87 @@ export default function AboutClient() {
             </motion.div>
           </Box>
 
-          {/* RIGHT: 3D canvas + cards */}
+          {/* RIGHT: 3D canvas + legend + about cards */}
           <Box sx={{ flex: "0 1 50%", minWidth: 0 }}>
-            {/* Three.js canvas */}
+            {/* ── 3D IIoT Network Canvas ── */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.92 }}
               animate={inView ? { opacity: 1, scale: 1 } : {}}
-              transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             >
               <Box
                 sx={{
-                  height: 280,
+                  height: 300,
                   borderRadius: 3,
                   overflow: "hidden",
-                  mb: 4,
+                  mb: 2,
                   bgcolor: isDark
-                    ? "rgba(255,255,255,0.02)"
+                    ? "rgba(255,255,255,0.015)"
                     : "rgba(0,0,0,0.02)",
                   border: `1px solid ${divider}`,
+                  position: "relative",
                 }}
               >
-                <Suspense fallback={null}>
-                  <Canvas camera={{ position: [0, 0, 4], fov: 50 }}>
-                    {/* <AboutScene /> */}
+                <Suspense
+                  fallback={
+                    <Box
+                      sx={{
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Typography
+                        sx={{ fontSize: "0.75rem", color: "text.disabled" }}
+                      >
+                        Loading scene…
+                      </Typography>
+                    </Box>
+                  }
+                >
+                  <Canvas camera={{ position: [0, 0, 6.5], fov: 50 }}>
+                    <IIoTNetworkScene />
                   </Canvas>
                 </Suspense>
+              </Box>
+
+              {/* Node legend below canvas */}
+              <Box
+                sx={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 1.5,
+                  mb: 3,
+                  px: 0.5,
+                }}
+              >
+                {NODES.map((node) => (
+                  <Box
+                    key={node.label}
+                    sx={{ display: "flex", alignItems: "center", gap: 0.75 }}
+                  >
+                    <Box
+                      sx={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        bgcolor: node.colorHex,
+                        flexShrink: 0,
+                        boxShadow: `0 0 6px ${node.colorHex}`,
+                      }}
+                    />
+                    <Typography
+                      sx={{
+                        fontSize: "0.7rem",
+                        color: "text.secondary",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {node.label}
+                    </Typography>
+                  </Box>
+                ))}
               </Box>
             </motion.div>
 

@@ -91,9 +91,9 @@ const fadeUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.1, duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    transition: { delay: i * 0.1, duration: 0.55, ease: "easeOut" as const },
   }),
-};
+} as const;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -301,7 +301,7 @@ export default function ExperienceClient({ experience, education }: Props) {
 
                 {/* Projects accordion */}
                 <Box sx={{ pl: 2, borderLeft: `2px solid ${divider}`, mb: 4 }}>
-                  {job.projects.map((proj, pi) => {
+                  {job.projects.map((proj) => {
                     const isOpen = activeProject === proj.name;
                     return (
                       <Box key={proj.name} sx={{ mb: 2 }}>
@@ -526,7 +526,7 @@ export default function ExperienceClient({ experience, education }: Props) {
                 }}
               >
                 <Suspense fallback={null}>
-                  {/* <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
+                  <Canvas camera={{ position: [0, 0, 5], fov: 50 }}>
                     <ambientLight intensity={0.2} />
                     <pointLight
                       position={[4, 4, 4]}
@@ -547,7 +547,7 @@ export default function ExperienceClient({ experience, education }: Props) {
                       speed={0.4}
                     />
                     <OrbitalRings />
-                  </Canvas> */}
+                  </Canvas>
                 </Suspense>
               </Box>
 
