@@ -49,8 +49,8 @@ const CONTACT_INFO = [
   {
     icon: <LinkedInIcon fontSize="small" />,
     label: "LinkedIn",
-    value: "shubham-tanpure-184a6720a",
-    href: "https://linkedin.com/in/shubham-tanpure-184a6720a",
+    value: "shubhamtanpure",
+    href: "https://linkedin.com/in/shubhamtanpure",
     color: "#0A66C2",
   },
   {
