@@ -222,7 +222,7 @@ export const HERO_TECH_BADGES = [
 export const HERO_LINKS = [
   {
     label: "Get in touch",
-    href: "mailto:shubhamtanpure8742@gmail.com",
+    href: "#contact",
     variant: "contained" as const,
   },
   {
