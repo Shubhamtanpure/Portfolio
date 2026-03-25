@@ -20,7 +20,7 @@ export interface ExperienceItem {
 export const EXPERIENCE: ExperienceItem[] = [
   {
     id: "elansol",
-    role: "Junior Software Developer",
+    role: "Software Developer",
     company: "Elansol Technologies Pvt. Ltd.",
     location: "Pune, India",
     period: "Dec 2024 – Present",
